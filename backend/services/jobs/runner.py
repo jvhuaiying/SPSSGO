@@ -46,6 +46,7 @@ from backend.services.jobs.common import (
 )
 from backend.services.jobs.plan_runner import build_plan_execution_context, run_generated_plan_job, try_run_template_plan_job
 from backend.services.variable_metadata_service import inject_analysis_metadata
+from backend.services.data_view_service import _generate_aliases
 from backend.storage import storage_service
 from backend.word_report import generate_report
 
@@ -254,6 +255,24 @@ async def _run_ai_interpret_job(job: dict):
     return await run_ai_interpretation(job)
 
 
+def _resolve_aliases_in_params(df, params: dict) -> dict:
+    """将 params 中的 alias 变量名翻译回真实 DataFrame 列名。"""
+    name_to_alias, alias_to_name = _generate_aliases(df.columns)
+    if not alias_to_name:
+        return params
+
+    def _resolve(value):
+        if isinstance(value, str) and value in alias_to_name:
+            return alias_to_name[value]
+        if isinstance(value, list):
+            return [_resolve(v) for v in value]
+        if isinstance(value, dict):
+            return {k: _resolve(v) for k, v in value.items()}
+        return value
+
+    return {k: _resolve(v) for k, v in params.items()}
+
+
 async def _run_execute_method_job(job: dict):
     total_start = time.perf_counter()
     timings = {}
@@ -270,6 +289,8 @@ async def _run_execute_method_job(job: dict):
 
     stage_start = time.perf_counter()
     params = await inject_analysis_metadata(session_id, method, build_execute_params(method, payload.get("params") or {}))
+    # 别名解析：将前端传入的 alias 翻译回真实列名
+    params = _resolve_aliases_in_params(df, params)
     timings["metadata_ms"] = (time.perf_counter() - stage_start) * 1000
 
     stage_start = time.perf_counter()
