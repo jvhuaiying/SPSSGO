@@ -1,10 +1,17 @@
 # -*- coding: utf-8 -*-
 """管理后台 API 入口，只做参数接收和服务转发，别写业务编排。"""
-from pydantic import BaseModel
 from fastapi import APIRouter, Depends
 
 from backend.admin_auth import current_user_required
 
+from backend.admin.schemas import (
+    AdminAIConfigPayload,
+    AdminUserCreatePayload,
+    AdminUserUpdatePayload,
+    AdminUserResetPasswordPayload,
+    AdminUserToggleActivePayload,
+    DatasetCleanupPayload,
+)
 from backend.admin.service import (
     cleanup_admin_sessions,
     cleanup_datasets_by_filename,
@@ -25,38 +32,6 @@ from backend.admin.service import (
 )
 
 router = APIRouter()
-
-
-class AdminAIConfigPayload(BaseModel):
-    provider: str = "deepseek"
-    base_url: str = ""
-    model: str = ""
-    api_key: str = ""
-    clear_api_key: bool = False
-
-
-class AdminUserCreatePayload(BaseModel):
-    username: str
-    password: str
-    role: str = "user"
-
-
-class AdminUserUpdatePayload(BaseModel):
-    username: str = ""
-    role: str = ""
-
-
-class AdminUserResetPasswordPayload(BaseModel):
-    new_password: str
-
-
-class AdminUserToggleActivePayload(BaseModel):
-    is_active: bool
-
-
-class DatasetCleanupPayload(BaseModel):
-    filename: str
-    preview: bool = True
 
 
 @router.get("/api/admin/dashboard")
